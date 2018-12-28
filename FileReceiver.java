@@ -12,8 +12,8 @@ public class FileReceiver {
     private static final byte[] SOURCE_BYTES = Arrays.copyOfRange(ByteBuffer.allocate(Integer.BYTES).putInt(SOURCE_PORT).array(), 2, 4);
     private static final int DESTINATION_PORT = 4242;
     private static final byte[] DESTINATION_BYTES = Arrays.copyOfRange(ByteBuffer.allocate(Integer.BYTES).putInt(DESTINATION_PORT).array(), 2, 4);
-    private static final int SIZE = 12;
-    private static final int HEADER_SIZE = SOURCE_BYTES.length + DESTINATION_BYTES.length + 1; // Header size for ACK in byte: 4 = sequence number for ack
+    private static final int SIZE = 9;
+    private static final int HEADER_SIZE = SOURCE_BYTES.length + DESTINATION_BYTES.length + 1; // Header size for ACK in byte: 1 = Alternating Bit
 
 
     public static void secureUDPReceiver() throws IOException {
@@ -39,7 +39,7 @@ public class FileReceiver {
 
     private static byte[] getMessage(byte[] datagram) {
         final byte[] lengthAsBytes = new byte[4];
-        System.arraycopy(datagram, 5, lengthAsBytes, 1, 3);
+        System.arraycopy(datagram, 6, lengthAsBytes, 2, 2);
         final int length = ByteBuffer.wrap(lengthAsBytes).getInt();
         return Arrays.copyOfRange(datagram, 12, length+12);
     }
@@ -71,9 +71,14 @@ public class FileReceiver {
     }
 
 
+    private static byte getFlag(byte[] header) {
+        return header[5];
+    }
+
+
     private static int getMsgLength(byte[] header) {
         final byte[] lengthAsBytes = new byte[4];
-        System.arraycopy(header,5, lengthAsBytes, 1, 3);
+        System.arraycopy(header,6, lengthAsBytes, 2, 2);
         return ByteBuffer.wrap(lengthAsBytes).getInt();
     }
 

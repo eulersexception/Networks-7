@@ -17,7 +17,7 @@ public class FileSender {
     private static final int DESTINATION_PORT = 2121;
     private static final byte[] DESTINATION_BYTES = Arrays.copyOfRange(ByteBuffer.allocate(Integer.BYTES).putInt(DESTINATION_PORT).array(), 2, 4);
     private static final int SIZE = 1400;
-    private static final int HEADER_SIZE = SOURCE_BYTES.length + DESTINATION_BYTES.length + 1 + 3 + 4; // Header size in byte: 1 = alternatingBit, 3 = payload length, 4 = lower 4 byte of checksum
+    private static final int HEADER_SIZE = SOURCE_BYTES.length + DESTINATION_BYTES.length + 1 + 1 + 2 + 4; // Header size in byte: 1 = alternatingBit, 1 = start-send-end-flag,  2 = payload length, 4 = lower 4 byte of checksum
 
 
     public static void secureTransmissionViaUDP(String fileName, String ipTarget) throws IOException {
@@ -32,8 +32,9 @@ public class FileSender {
         int sizeOfFile = bytesOfFile.length;
         int bytesProcessed = 0;
         byte[] sendingData;
-        byte[] receivingData = new byte[12];
+        byte[] receivingData = new byte[9];
         byte alternatingBit = Integer.valueOf(0).byteValue();
+        byte startSendEndFlag = FileSender.setFlag(0);
 
 
         DatagramSocket socket = new DatagramSocket(SOURCE_PORT);
@@ -42,7 +43,7 @@ public class FileSender {
         while (bytesProcessed < sizeOfFile) {
 
             int length = Math.min(SIZE-HEADER_SIZE, sizeOfFile-bytesProcessed);
-            sendingData = FileSender.createChunkWithChecksum(alternatingBit, Arrays.copyOfRange(bytesOfFile, bytesProcessed, length));
+            sendingData = FileSender.createChunkWithChecksum(alternatingBit, startSendEndFlag, Arrays.copyOfRange(bytesOfFile, bytesProcessed, length));
             DatagramPacket packetOut = new DatagramPacket(sendingData, sendingData.length, ip, DESTINATION_PORT);
             DatagramPacket packetIn = new DatagramPacket(receivingData, receivingData.length);
             socket.send(packetOut);
@@ -67,8 +68,9 @@ public class FileSender {
                     socket.send(packetOut);
                 }
             }
-            socket.close();
+            startSendEndFlag = bytesProcessed + length < sizeOfFile? FileSender.setFlag(1) : FileSender.setFlag(2);
         }
+        socket.close();
     }
 
 
@@ -79,7 +81,7 @@ public class FileSender {
      * @param payLoad Raw message as array of bytes.
      * @return A byte array of maximum length 1400.
      */
-    private static byte[] createChunkWithChecksum(byte alternatingBit, byte[] payLoad) {
+    private static byte[] createChunkWithChecksum(byte alternatingBit, byte startSendEndFlag, byte[] payLoad) {
 
         // creating byte array for header and payload - no checksum consideration yet
         byte[] newPayLoad = new byte[HEADER_SIZE+payLoad.length-4];
@@ -94,8 +96,11 @@ public class FileSender {
         newPayLoad[index] = alternatingBit;
         index++;
 
+        newPayLoad[index] = startSendEndFlag;
+        index++;
+
         byte[] payloadLengthAsBytes = ByteBuffer.allocate(Integer.BYTES).putInt(payLoad.length).array();
-        System.arraycopy(payloadLengthAsBytes, 1, newPayLoad, index, payloadLengthAsBytes.length-1);
+        System.arraycopy(payloadLengthAsBytes, 2, newPayLoad, index, payloadLengthAsBytes.length-2);
         index += payloadLengthAsBytes.length-1;
 
         System.arraycopy(payLoad, 0, newPayLoad, index, payLoad.length);
@@ -121,6 +126,17 @@ public class FileSender {
     }
 
 
+    private static byte setFlag(int flag) {
+        byte result = 0;
+
+        if(flag == 1)
+            result ^= 1;
+        else if(flag == 2)
+            result ^= 1 << 1;
+
+        return result;
+    }
+
 
     private static long getChecksum(byte[] payload) {
         CRC32 crc32 = new CRC32();
@@ -132,7 +148,7 @@ public class FileSender {
     private static boolean checkACK(byte[] ack) {
 
             int index = 0;
-            byte[] intValues = new byte[8];
+            byte[] intValues = new byte[5];
             byte[] longValue = new byte[8];
             CRC32 checksumTest = new CRC32();
 
@@ -151,6 +167,18 @@ public class FileSender {
 
     public static void main(String... args) {
 
+        byte flag = 0;
+
+        System.out.println("Zero flag: "+flag);
+
+        flag ^= 1 << 0;
+
+        System.out.println("Lowest bit set: "+flag);
+
+        flag ^= 1 << 0;
+        flag ^= 1 << 1;
+
+        System.out.println("Lowest bit to zero, second bit to one: "+flag);
 
     }
 }
