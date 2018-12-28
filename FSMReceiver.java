@@ -19,10 +19,10 @@ public class FSMReceiver {
         transition = new Transition[State.values().length][Msg.values().length];
         transition[State.WAIT_FOR_ZERO.ordinal()][Msg.ALL_FINE.ordinal()] = new ExtractPacketAndSendAck();
         transition[State.WAIT_FOR_ZERO.ordinal()][Msg.IS_CORRUPT.ordinal()] = new DoNothing();
-        transition[State.WAIT_FOR_ZERO.ordinal()][Msg.WRONG_ALTERNATING.ordinal()] = new ResendLastPacket();
+        transition[State.WAIT_FOR_ZERO.ordinal()][Msg.WRONG_ALTERNATING.ordinal()] = new ResendLastACK();
         transition[State.WAIT_FOR_ONE.ordinal()][Msg.ALL_FINE.ordinal()] = new ExtractPacketAndSendAck();
         transition[State.WAIT_FOR_ONE.ordinal()][Msg.IS_CORRUPT.ordinal()] = new DoNothing();
-        transition[State.WAIT_FOR_ONE.ordinal()][Msg.WRONG_ALTERNATING.ordinal()] = new ResendLastPacket();
+        transition[State.WAIT_FOR_ONE.ordinal()][Msg.WRONG_ALTERNATING.ordinal()] = new ResendLastACK();
     }
 
 
@@ -35,8 +35,15 @@ public class FSMReceiver {
 
         @Override
         public State execute(Msg Input) {
-            System.out.println("Packet arrived - data delivered - ACK sent. Waiting for next Packet.");
-            return currentState == State.WAIT_FOR_ZERO? State.WAIT_FOR_ONE : State.WAIT_FOR_ZERO;
+            if(currentState == State.WAIT_FOR_ZERO) {
+                System.out.println("Packet arrived - data delivered - ACK sent. Waiting for next packet with Alternating Bit = 1.");
+                currentState = State.WAIT_FOR_ONE;
+            }
+            else {
+                System.out.println("Packet arrived - data delivered - ACK sent. Waiting for next packet with Alternating Bit = 0.");
+                currentState = State.WAIT_FOR_ZERO;
+            }
+            return currentState;
         }
     }
 
@@ -44,14 +51,26 @@ public class FSMReceiver {
 
         @Override
         public State execute(Msg input) {
+            if(currentState == State.WAIT_FOR_ZERO) {
+                System.out.println("Corrupt packet - no further action - waiting for retransmission of packet with Alternating Bit = 1.");
+            }
+            else {
+                System.out.println("Corrupt packet - no further action - waiting for retransmission of packet with Alternating Bit = 0.");
+            }
             return currentState;
         }
     }
 
-    class ResendLastPacket extends Transition {
+    class ResendLastACK extends Transition {
 
         @Override
         public State execute(Msg Input) {
+            if(currentState == State.WAIT_FOR_ZERO) {
+                System.out.println("Wrong alternating bit - retransmission of last ACK - waiting for retransmission of packet with Alternating Bit = 1.");
+            }
+            else {
+                System.out.println("Wrong alternating bit - retransmission of last ACK - waiting for retransmission of packet with Alternating Bit = 0.");
+            }
             return currentState;
         }
     }
