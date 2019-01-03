@@ -17,33 +17,65 @@ public class FileSender {
     private static final int DESTINATION_PORT = 2121;
     private static final byte[] DESTINATION_BYTES = Arrays.copyOfRange(ByteBuffer.allocate(Integer.BYTES).putInt(DESTINATION_PORT).array(), 2, 4);
     private static final int SIZE = 1400;
-    private static final int HEADER_SIZE = SOURCE_BYTES.length + DESTINATION_BYTES.length + 1 + 1 + 2 + 4; // Header size in byte: 1 = alternatingBit, 1 = start-send-end-flag,  2 = payload length, 4 = lower 4 byte of checksum
-
+    private static final int HEADER_SIZE = SOURCE_BYTES.length + DESTINATION_BYTES.length + 1 + 1 + 2 + 4; // Header size in byte: 1 = alternatingBit, 1 = send-end-flag,  2 = payload length, 4 = lower 4 byte of checksum
+    
 
     public static void secureTransmissionViaUDP(String fileName, String ipTarget) throws IOException {
 
         InetAddress ip = InetAddress.getByName(ipTarget);
         File file = new File(fileName);
         byte[] bytesOfFile = Files.readAllBytes(file.toPath());
-        /*
         byte[] fileNameAsBytes = fileName.getBytes();
         int fileNameLength = fileNameAsBytes.length;
-        */
+
         int sizeOfFile = bytesOfFile.length;
         int bytesProcessed = 0;
         byte[] sendingData;
         byte[] receivingData = new byte[9];
         byte alternatingBit = Integer.valueOf(0).byteValue();
-        byte startSendEndFlag = FileSender.setFlag(0);
+        byte sendEndFlag = FileSender.setFlag(1);
 
 
         DatagramSocket socket = new DatagramSocket(SOURCE_PORT);
         socket.setSoTimeout(250);
 
-        while (bytesProcessed < sizeOfFile) {
+        boolean headerNotSent = true;
 
+        while(headerNotSent) {
+            int length = SIZE-HEADER_SIZE-fileNameLength;
+            byte[] firstPacket = new byte[length+fileNameLength];
+            System.arraycopy(fileNameAsBytes, 0, firstPacket, 0, fileNameLength);
+            System.arraycopy(bytesOfFile, 0, firstPacket, fileNameLength, length);
+            sendingData = FileSender.createChunkWithChecksum(alternatingBit, sendEndFlag, firstPacket);
+            DatagramPacket packetOut = new DatagramPacket(sendingData, sendingData.length, ip, DESTINATION_PORT);
+            DatagramPacket packetIn = new DatagramPacket(receivingData, receivingData.length);
+            socket.send(packetOut);
+
+            boolean receiving = true;
+
+            while(receiving) {
+                try {
+                    socket.receive(packetIn);
+                } catch (SocketTimeoutException ex) {
+                    socket.send(packetOut);
+                }
+
+                byte[] ack = packetIn.getData();
+
+                if(FileSender.checkACK(ack)) {
+                    bytesProcessed += length;
+                    receiving = false;
+                    alternatingBit ^= 1;
+                }
+                else {
+                    socket.send(packetOut);
+                }
+            }
+        }
+
+        while (bytesProcessed < sizeOfFile) {
             int length = Math.min(SIZE-HEADER_SIZE, sizeOfFile-bytesProcessed);
-            sendingData = FileSender.createChunkWithChecksum(alternatingBit, startSendEndFlag, Arrays.copyOfRange(bytesOfFile, bytesProcessed, length));
+            sendingData = FileSender.createChunkWithChecksum(alternatingBit, sendEndFlag, Arrays.copyOfRange(bytesOfFile, bytesProcessed, length));
             DatagramPacket packetOut = new DatagramPacket(sendingData, sendingData.length, ip, DESTINATION_PORT);
             DatagramPacket packetIn = new DatagramPacket(receivingData, receivingData.length);
             socket.send(packetOut);
@@ -68,7 +100,7 @@ public class FileSender {
                     socket.send(packetOut);
                 }
             }
-            startSendEndFlag = bytesProcessed + length < sizeOfFile? FileSender.setFlag(1) : FileSender.setFlag(2);
+            sendEndFlag = bytesProcessed + length < sizeOfFile? FileSender.setFlag(1) : FileSender.setFlag(2);
         }
         socket.close();
     }
@@ -81,7 +113,7 @@ public class FileSender {
      * @param payLoad Raw message as array of bytes.
      * @return A byte array of maximum length 1400.
      */
-    private static byte[] createChunkWithChecksum(byte alternatingBit, byte startSendEndFlag, byte[] payLoad) {
+    private static byte[] createChunkWithChecksum(byte alternatingBit, byte sendEndFlag, byte[] payLoad) {
 
         // creating byte array for header and payload - no checksum consideration yet
         byte[] newPayLoad = new byte[HEADER_SIZE+payLoad.length-4];
@@ -96,7 +128,7 @@ public class FileSender {
         newPayLoad[index] = alternatingBit;
         index++;
 
-        newPayLoad[index] = startSendEndFlag;
+        newPayLoad[index] = sendEndFlag;
         index++;
 
         byte[] payloadLengthAsBytes = ByteBuffer.allocate(Integer.BYTES).putInt(payLoad.length).array();
