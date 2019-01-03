@@ -6,7 +6,7 @@
 /**
  * Class which models the state machine itself.
  */
-public class FsmSender {
+public class FSMSender {
     // all states for this FSM
     enum State {
         WAIT_CALL_0, WAIT_ACK_0, WAIT_CALL_1, WAIT_ACK_1
@@ -22,7 +22,7 @@ public class FsmSender {
     /**
      * constructor
      */
-    public FsmSender(){
+    public FSMSender(){
         currentState = State.WAIT_CALL_0;
 // define all valid state transitions for our state machine
 // (undefined transitions will be ignored)
