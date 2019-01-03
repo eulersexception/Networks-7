@@ -23,6 +23,7 @@ public class FSMReceiver {
         transition[State.WAIT_FOR_ONE.ordinal()][Msg.ALL_FINE.ordinal()] = new ExtractPacketAndSendAck();
         transition[State.WAIT_FOR_ONE.ordinal()][Msg.IS_CORRUPT.ordinal()] = new DoNothing();
         transition[State.WAIT_FOR_ONE.ordinal()][Msg.WRONG_ALTERNATING.ordinal()] = new ResendLastACK();
+        System.out.println("INFO: FSM Receiver constructed, current state: "+currentState);
     }
 
 
