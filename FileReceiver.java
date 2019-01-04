@@ -2,6 +2,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -27,23 +28,32 @@ public class FileReceiver {
         socket.setSoTimeout(10000);
         boolean receiving = true;
         byte[] wholeMessage = {};
+        byte[] ackZero = FileReceiver.createACK(Integer.valueOf(0).byteValue());
+        byte[] ackOne = FileReceiver.createACK(Integer.valueOf(1).byteValue());
+        byte[] ack = ackOne;
+
         int expectedAltBit = 0;
 
         while (receiving) {
-            DatagramPacket packet = new DatagramPacket(data, data.length);
+
+            DatagramPacket packetIn = new DatagramPacket(data, data.length);
+
             try {
-                socket.receive(packet);
-                if (!notCorrupt(packet.getData())) {
+                socket.receive(packetIn);
+                if (isCorrupt(packetIn.getData())) {
                     packetsWrong++;
                     fileReceiver.processMsg(FSMReceiver.Msg.IS_CORRUPT);
-                } else if (getAlternatingBit(getHeaderWithoutChecksum(packet.getData())) != expectedAltBit) {
+                } else if (getAlternatingBit(getHeaderWithoutChecksum(packetIn.getData())) != expectedAltBit) {
                     packetsWrong++;
                     fileReceiver.processMsg(FSMReceiver.Msg.WRONG_ALTERNATING);
                 }
                 else {
                     packetsOkay++;
+                    ack = getAlternatingBit(getHeaderWithoutChecksum(packetIn.getData())) == 0? ackZero : ackOne;
+                    DatagramPacket packetOut = new DatagramPacket(ack, ack.length, InetAddress.getByName("localhost"), DESTINATION_PORT);
+                    socket.send(packetOut);
                     fileReceiver.processMsg(FSMReceiver.Msg.ALL_FINE);
-                    wholeMessage = addToMessage(packet, wholeMessage);
+                    wholeMessage = addToMessage(packetIn, wholeMessage);
                 }
             } catch (SocketTimeoutException timeOut) {
                 receiving = false;
@@ -62,6 +72,31 @@ public class FileReceiver {
         System.arraycopy(message, 0, result, 0, message.length);
         System.arraycopy(newpart, 0, result, message.length, newpart.length);
         return result;
+    }
+
+
+    private static byte[] createACK(byte alternatingBit) {
+        byte[] header = new byte[5];
+        int index = 0;
+        System.arraycopy(SOURCE_BYTES,0, header, index, SOURCE_BYTES.length);
+        index += SOURCE_BYTES.length;
+        System.arraycopy(DESTINATION_BYTES, 0, header, index, DESTINATION_BYTES.length);
+        index += DESTINATION_BYTES.length;
+        header[index] = alternatingBit;
+
+        CRC32 crc32 = new CRC32();
+        crc32.update(header);
+
+        byte[] checksum = ByteBuffer.allocate(Long.BYTES).putLong(crc32.getValue()).array();
+
+        byte[] ack = new byte[9];
+
+        index = 0;
+        System.arraycopy(header, 0, ack, index, header.length);
+        index += header.length;
+        System.arraycopy(checksum, 4, ack, index, 4);
+
+        return ack;
     }
 
     private static void writeOutputFile(byte[] message) {
@@ -123,7 +158,7 @@ public class FileReceiver {
     }
 
 
-    private static boolean notCorrupt(byte[] datagram) {
+    private static boolean isCorrupt(byte[] datagram) {
 
         CRC32 checksum = new CRC32();
 
@@ -140,7 +175,7 @@ public class FileReceiver {
 
         checksum.update(totalBytes);
 
-        return FileReceiver.getChecksum(datagram) == checksum.getValue();
+        return FileReceiver.getChecksum(datagram) != checksum.getValue();
     }
 
     public static void main(String... args) throws IOException{
