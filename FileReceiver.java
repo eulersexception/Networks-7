@@ -71,6 +71,7 @@ public class FileReceiver {
         }
         socket.close();
         System.out.println("Socket closed, rec packets ok: " + packetsOkay + ", packets wrong: " + packetsWrong);
+        System.out.println("Total bytes written: "+wholeMessage.length);
         //System.out.println("Message: " + Arrays.toString(wholeMessage));
         writeOutputFile(wholeMessage, fileName);
     }
@@ -111,6 +112,7 @@ public class FileReceiver {
         System.out.println(fileName);
         try (FileOutputStream fos = new FileOutputStream("src/rec_"+fileName.trim())) {
             fos.write(message);
+            fos.flush();
         } catch (IOException e) {
             e.printStackTrace();
         }

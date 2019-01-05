@@ -66,7 +66,7 @@ public class FileSender {
                 byte[] ack = packetIn.getData();
 
                 if (FileSender.checkACK(ack)) {
-                    //bytesProcessed += length;
+                    bytesProcessed += length;
                     receiving = false;
                     headerNotSent = false;
                     alternatingBit ^= 1;
@@ -84,7 +84,7 @@ public class FileSender {
             System.out.println("file bytes:" + bytesOfFile.length);
             int length = Math.min(SIZE - HEADER_SIZE, sizeOfFile - bytesProcessed);
             System.out.println("data \n length: " + length);
-            System.out.println("vytesProc: " + bytesProcessed);
+            System.out.println("bytes processed: " + bytesProcessed);
             sendingData = FileSender.createChunkWithChecksum(alternatingBit, sendEndFlag, Arrays.copyOfRange(bytesOfFile, bytesProcessed, bytesProcessed+length));
             DatagramPacket packetOut = new DatagramPacket(sendingData, sendingData.length, ip, DESTINATION_PORT);
             DatagramPacket packetIn = new DatagramPacket(receivingData, receivingData.length);
