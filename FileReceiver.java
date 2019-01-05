@@ -34,34 +34,55 @@ public class FileReceiver {
         boolean firstReceived = false;
         int expectedAltBit = 0;
         String fileName = "";
+        boolean wasDuplicated = false;
+        int duplicates = 0;
+        int loses = 0;
+        int manipulated = 0;
+        long start = System.currentTimeMillis();
         while (receiving) {
 
             DatagramPacket packetIn = new DatagramPacket(data, data.length);
-
+            double pForAll = Math.random();
             try {
-                socket.receive(packetIn);
-                if (isCorrupt(packetIn.getData())) {
-                    packetsWrong++;
-                    fileReceiver.processMsg(FSMReceiver.Msg.IS_CORRUPT);
-                } else if (getAlternatingBit(getHeaderWithoutChecksum(packetIn.getData())) != expectedAltBit) {
-                    packetsWrong++;
-                    fileReceiver.processMsg(FSMReceiver.Msg.WRONG_ALTERNATING);
+                if (wasDuplicated)
+                    wasDuplicated = false;
+                else
+                    socket.receive(packetIn);
+
+                if (Math.random() < 0.1) {
+                    packetIn = UnreliableChannel.losePacket(packetIn);
+                    loses++;
                 }
-                else {
-                    packetsOkay++;
-                    ack = getAlternatingBit(getHeaderWithoutChecksum(packetIn.getData())) == 0? ackZero : ackOne;
-                    DatagramPacket packetOut = new DatagramPacket(ack, ack.length, InetAddress.getByName("localhost"), DESTINATION_PORT);
-                    socket.send(packetOut);
-                    fileReceiver.processMsg(FSMReceiver.Msg.ALL_FINE);
-                    if (!firstReceived){
-                        fileName = new String(getFileNameFromFirst(getMessage(packetIn.getData())));
-                        firstReceived = true;
-                        System.out.println(fileName);
-                        byte[] dataFromFirst = getMessage(packetIn.getData());
-                        wholeMessage = addToMessage(Arrays.copyOfRange(dataFromFirst, 20, dataFromFirst.length), wholeMessage);
-                    }
-                    else {
-                        wholeMessage = addToMessage(getMessage(packetIn.getData()), wholeMessage);
+                else if (Math.random() < 0.05){
+                    wasDuplicated = true;
+                    duplicates++;
+                }
+                else if (Math.random() < 0.05) {
+                    packetIn = UnreliableChannel.manipulatePacket(packetIn);
+                    manipulated++;
+                }
+                if (packetIn != null) {
+                    if (isCorrupt(packetIn.getData())) {
+                        packetsWrong++;
+                        fileReceiver.processMsg(FSMReceiver.Msg.IS_CORRUPT);
+                    } else if (getAlternatingBit(getHeaderWithoutChecksum(packetIn.getData())) != expectedAltBit) {
+                        packetsWrong++;
+                        fileReceiver.processMsg(FSMReceiver.Msg.WRONG_ALTERNATING);
+                    } else {
+                        packetsOkay++;
+                        ack = getAlternatingBit(getHeaderWithoutChecksum(packetIn.getData())) == 0 ? ackZero : ackOne;
+                        DatagramPacket packetOut = new DatagramPacket(ack, ack.length, InetAddress.getByName("localhost"), DESTINATION_PORT);
+                        socket.send(packetOut);
+                        fileReceiver.processMsg(FSMReceiver.Msg.ALL_FINE);
+                        if (!firstReceived) {
+                            fileName = new String(getFileNameFromFirst(getMessage(packetIn.getData())));
+                            firstReceived = true;
+                            System.out.println(fileName);
+                            byte[] dataFromFirst = getMessage(packetIn.getData());
+                            wholeMessage = addToMessage(Arrays.copyOfRange(dataFromFirst, 20, dataFromFirst.length), wholeMessage);
+                        } else {
+                            wholeMessage = addToMessage(getMessage(packetIn.getData()), wholeMessage);
+                        }
                     }
                 }
             } catch (SocketTimeoutException timeOut) {
@@ -70,9 +91,11 @@ public class FileReceiver {
             expectedAltBit ^= 1;
         }
         socket.close();
+        long duration = System.currentTimeMillis() - start / 1000;
         System.out.println("Socket closed, rec packets ok: " + packetsOkay + ", packets wrong: " + packetsWrong);
         System.out.println("Total bytes written: "+wholeMessage.length);
-        //System.out.println("Message: " + Arrays.toString(wholeMessage));
+        System.out.println("Took seconds:" + duration);
+        System.out.println(String.format("duplicated: %d, loses: %d, manipulated %d ", duplicates, loses, manipulated ));
         writeOutputFile(wholeMessage, fileName);
     }
 
