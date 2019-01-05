@@ -19,7 +19,7 @@ public class FileReceiver {
     private static final int HEADER_SIZE = SOURCE_BYTES.length + DESTINATION_BYTES.length + 1; // Header size for ACK in byte: 1 = Alternating Bit
     private static FSMReceiver fileReceiver;
 
-    public static void secureUDPReceiver() throws IOException {
+    public void secureUDPReceiver() throws IOException {
 
         DatagramSocket socket = new DatagramSocket(SOURCE_PORT);
         byte[] data = new byte[1400];
@@ -194,7 +194,7 @@ public class FileReceiver {
 
     public static void main(String... args) throws IOException{
         fileReceiver = new FSMReceiver();
-        secureUDPReceiver();
+        new FileReceiver().secureUDPReceiver();
     }
 
 
