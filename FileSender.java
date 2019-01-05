@@ -43,15 +43,16 @@ public class FileSender {
 
         while (headerNotSent) {
             fileSender.processMsg(FSMSender.Msg.SEND);
-            int length = SIZE - HEADER_SIZE - fileNameLength;
-            byte[] firstPacket = new byte[length + fileNameLength];
+            int length = SIZE - HEADER_SIZE - 20;
+            byte[] firstPacket = new byte[length + 20];
             System.arraycopy(fileNameAsBytes, 0, firstPacket, 0, fileNameLength);
-            System.arraycopy(bytesOfFile, 0, firstPacket, fileNameLength, length);
+            System.arraycopy(bytesOfFile, 0, firstPacket, 20, length);
             sendingData = FileSender.createChunkWithChecksum(alternatingBit, sendEndFlag, firstPacket);
             DatagramPacket packetOut = new DatagramPacket(sendingData, sendingData.length, ip, DESTINATION_PORT);
             DatagramPacket packetIn = new DatagramPacket(receivingData, receivingData.length);
             socket.send(packetOut);
-
+            String fileNameSent = new String(Arrays.copyOfRange(firstPacket, 0, 20 ));
+            System.out.println(fileNameSent);
             boolean receiving = true;
 
             while (receiving) {
@@ -65,7 +66,7 @@ public class FileSender {
                 byte[] ack = packetIn.getData();
 
                 if (FileSender.checkACK(ack)) {
-                    bytesProcessed += length;
+                    //bytesProcessed += length;
                     receiving = false;
                     headerNotSent = false;
                     alternatingBit ^= 1;
@@ -75,11 +76,16 @@ public class FileSender {
                 }
             }
         }
-
+        int counter = 0;
         while (bytesProcessed < sizeOfFile) {
             fileSender.processMsg(FSMSender.Msg.SEND);
+            counter ++;
+            System.out.println("round "+ counter);
+            System.out.println("file bytes:" + bytesOfFile.length);
             int length = Math.min(SIZE - HEADER_SIZE, sizeOfFile - bytesProcessed);
-            sendingData = FileSender.createChunkWithChecksum(alternatingBit, sendEndFlag, Arrays.copyOfRange(bytesOfFile, bytesProcessed, length));
+            System.out.println("data \n length: " + length);
+            System.out.println("vytesProc: " + bytesProcessed);
+            sendingData = FileSender.createChunkWithChecksum(alternatingBit, sendEndFlag, Arrays.copyOfRange(bytesOfFile, bytesProcessed, bytesProcessed+length));
             DatagramPacket packetOut = new DatagramPacket(sendingData, sendingData.length, ip, DESTINATION_PORT);
             DatagramPacket packetIn = new DatagramPacket(receivingData, receivingData.length);
             socket.send(packetOut);
@@ -110,7 +116,6 @@ public class FileSender {
         }
         socket.close();
     }
-
 
     /**
      * Creates a chunk that contains source port, destination port, alternating bit, payload length, checksum and payload (in this order) as byte values.

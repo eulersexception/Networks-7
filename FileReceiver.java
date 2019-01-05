@@ -31,9 +31,9 @@ public class FileReceiver {
         byte[] ackZero = FileReceiver.createACK(Integer.valueOf(0).byteValue());
         byte[] ackOne = FileReceiver.createACK(Integer.valueOf(1).byteValue());
         byte[] ack = ackOne;
-
+        boolean firstReceived = false;
         int expectedAltBit = 0;
-
+        String fileName = "";
         while (receiving) {
 
             DatagramPacket packetIn = new DatagramPacket(data, data.length);
@@ -53,7 +53,16 @@ public class FileReceiver {
                     DatagramPacket packetOut = new DatagramPacket(ack, ack.length, InetAddress.getByName("localhost"), DESTINATION_PORT);
                     socket.send(packetOut);
                     fileReceiver.processMsg(FSMReceiver.Msg.ALL_FINE);
-                    wholeMessage = addToMessage(packetIn, wholeMessage);
+                    if (!firstReceived){
+                        fileName = new String(getFileNameFromFirst(getMessage(packetIn.getData())));
+                        firstReceived = true;
+                        System.out.println(fileName);
+                        byte[] dataFromFirst = getMessage(packetIn.getData());
+                        wholeMessage = addToMessage(Arrays.copyOfRange(dataFromFirst, 20, dataFromFirst.length), wholeMessage);
+                    }
+                    else {
+                        wholeMessage = addToMessage(getMessage(packetIn.getData()), wholeMessage);
+                    }
                 }
             } catch (SocketTimeoutException timeOut) {
                 receiving = false;
@@ -63,14 +72,13 @@ public class FileReceiver {
         socket.close();
         System.out.println("Socket closed, rec packets ok: " + packetsOkay + ", packets wrong: " + packetsWrong);
         //System.out.println("Message: " + Arrays.toString(wholeMessage));
-        writeOutputFile(wholeMessage);
+        writeOutputFile(wholeMessage, fileName);
     }
 
-    private static byte[] addToMessage(DatagramPacket packet, byte[] message) {
-        byte[] newpart = ByteBuffer.wrap(Arrays.copyOfRange(packet.getData(), 4, packet.getLength()-8)).array();
-        byte[] result = new byte[message.length + newpart.length];
+    private static byte[] addToMessage(byte[] packet, byte[] message) {
+        byte[] result = new byte[message.length + packet.length];
         System.arraycopy(message, 0, result, 0, message.length);
-        System.arraycopy(newpart, 0, result, message.length, newpart.length);
+        System.arraycopy(packet, 0, result, message.length, packet.length);
         return result;
     }
 
@@ -99,8 +107,9 @@ public class FileReceiver {
         return ack;
     }
 
-    private static void writeOutputFile(byte[] message) {
-        try (FileOutputStream fos = new FileOutputStream("src/out.JPG")) {
+    private static void writeOutputFile(byte[] message, String fileName) {
+        System.out.println(fileName);
+        try (FileOutputStream fos = new FileOutputStream("src/rec-"+fileName)) {
             fos.write(message);
         } catch (IOException e) {
             e.printStackTrace();
@@ -111,6 +120,9 @@ public class FileReceiver {
         return Arrays.copyOfRange(datagram, 0, 8);
     }
 
+    private static byte[] getFileNameFromFirst(byte[] datagram) {
+        return Arrays.copyOfRange(datagram, 0, 20);
+    }
 
     private static byte[] getMessage(byte[] datagram) {
         final byte[] lengthAsBytes = new byte[4];
