@@ -109,7 +109,7 @@ public class FileReceiver {
 
     private static void writeOutputFile(byte[] message, String fileName) {
         System.out.println(fileName);
-        try (FileOutputStream fos = new FileOutputStream("src/rec-"+fileName)) {
+        try (FileOutputStream fos = new FileOutputStream("src/rec_"+fileName.trim())) {
             fos.write(message);
         } catch (IOException e) {
             e.printStackTrace();
