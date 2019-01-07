@@ -40,7 +40,8 @@ public class FileSender {
         socket.setSoTimeout(250);
 
         boolean headerNotSent = true;
-
+        int counter = 0;
+        int timeouts = 0;
         while (headerNotSent) {
             fileSender.processMsg(FSMSender.Msg.SEND);
             int length = SIZE - HEADER_SIZE - 20;
@@ -61,6 +62,8 @@ public class FileSender {
                 } catch (SocketTimeoutException ex) {
                     fileSender.processMsg(FSMSender.Msg.TIMEOUT);
                     socket.send(packetOut);
+                    timeouts++;
+                    counter++;
                 }
 
                 byte[] ack = packetIn.getData();
@@ -76,14 +79,13 @@ public class FileSender {
                 }
             }
         }
-        int counter = 0;
         while (bytesProcessed < sizeOfFile) {
             fileSender.processMsg(FSMSender.Msg.SEND);
-            counter ++;
+            //counter ++;
             System.out.println("round "+ counter);
             System.out.println("file bytes:" + bytesOfFile.length);
             int length = Math.min(SIZE - HEADER_SIZE, sizeOfFile - bytesProcessed);
-            System.out.println("data \n length: " + length);
+            System.out.println("data\nlength: " + length);
             System.out.println("bytes processed: " + bytesProcessed);
             sendingData = FileSender.createChunkWithChecksum(alternatingBit, sendEndFlag, Arrays.copyOfRange(bytesOfFile, bytesProcessed, bytesProcessed+length));
             DatagramPacket packetOut = new DatagramPacket(sendingData, sendingData.length, ip, DESTINATION_PORT);
@@ -98,6 +100,8 @@ public class FileSender {
                 } catch (SocketTimeoutException ex) {
                     fileSender.processMsg(FSMSender.Msg.TIMEOUT);
                     socket.send(packetOut);
+                    counter++;
+                    timeouts++;
                 }
 
                 byte[] ack = packetIn.getData();
@@ -109,12 +113,14 @@ public class FileSender {
                     fileSender.processMsg(FSMSender.Msg.ALL_FINE);
                 } else {
                     socket.send(packetOut);
+                    counter++;
                     fileSender.processMsg(FSMSender.Msg.CORRUPT_OR_WRONG_BIT);
                 }
             }
             sendEndFlag = bytesProcessed + length < sizeOfFile ? FileSender.setFlag(1) : FileSender.setFlag(2);
         }
         socket.close();
+        System.out.println("Timeouts: " +timeouts);
     }
 
     /**
