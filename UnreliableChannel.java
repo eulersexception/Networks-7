@@ -34,9 +34,11 @@ public class UnreliableChannel {
             byte[] data = new byte[1400];
             result.setData(data);
             lost ++;
+            System.out.println("got lost package number "+lost );
         }
         else if (pDupCalc < pDup){
             duplicated++;
+            System.out.println("\n\n\ngot duplicated package number "+duplicated );
             DatagramSocket socket = null;
             try {
                 socket = new DatagramSocket();
@@ -51,6 +53,7 @@ public class UnreliableChannel {
         }
         else if (pManCalc < pMan){
             manipulated++;
+            System.out.println("\n\n\ngot manipluated package number "+manipulated );
             byte[] payload = result.getData();
             payload[12] ^= 1;
             result.setData(payload);

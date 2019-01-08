@@ -86,11 +86,11 @@ public class FSMSender {
         public State execute(Msg input) {
             if(currentState == State.WAIT_ACK_0) {
                 System.out.println("ACK 0 received.");
-                currentState = State.WAIT_CALL_0;
+                currentState = State.WAIT_CALL_1;
             }
             else {
                 System.out.println("ACK 1 received.");
-                currentState = State.WAIT_CALL_1;
+                currentState = State.WAIT_CALL_0;
             }
             return currentState;
         }

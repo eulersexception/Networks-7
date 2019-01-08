@@ -111,8 +111,8 @@ public class FileReceiver {
     private static boolean checkIfBytesAllZero(byte[] arr) {
         boolean result = true;
 
-        for(byte element : arr) {
-            if(element != 0) {
+        for (byte element : arr) {
+            if (element != 0) {
                 result = false;
                 break;
             }
@@ -165,10 +165,11 @@ public class FileReceiver {
         long start = System.currentTimeMillis();
         int lostOnReceiver = 0;
         double duration = 0;
+        int round =0;
         while (receiving) {
             DatagramPacket packetIn = new DatagramPacket(data, data.length);
             DatagramPacket actualPacket;
-
+            round ++;
             try {
 
                 socket.receive(packetIn);
@@ -176,8 +177,7 @@ public class FileReceiver {
                 if (checkIfBytesAllZero(actualPacket.getData())) {
                     sleep(250);
                     lostOnReceiver++;
-                }
-                else if (isCorrupt(actualPacket.getData())) {
+                } else if (isCorrupt(actualPacket.getData())) {
                     packetsCorrupt++;
                     fileReceiver.processMsg(FSMReceiver.Msg.IS_CORRUPT);
                     sleep(250);
@@ -186,25 +186,26 @@ public class FileReceiver {
                     fileReceiver.processMsg(FSMReceiver.Msg.WRONG_ALTERNATING);
                     sleep(250);
                 } else {
-                        packetsOkay++;
-                        ack = getAlternatingBit(getHeaderWithoutChecksum(actualPacket.getData())) == 0 ? ackZero : ackOne;
-                        DatagramPacket packetOut = new DatagramPacket(ack, ack.length, InetAddress.getByName("localhost"), DESTINATION_PORT);
-                        socket.send(packetOut);
-                        fileReceiver.processMsg(FSMReceiver.Msg.ALL_FINE);
-                        expectedAltBit ^= 1;
-                        if (!firstReceived) {
-                            fileName = new String(getFileNameFromFirst(getMessage(actualPacket.getData())));
-                            firstReceived = true;
-                            System.out.println(fileName);
-                            byte[] dataFromFirst = getMessage(actualPacket.getData());
-                            wholeMessage = addToMessage(Arrays.copyOfRange(dataFromFirst, 20, dataFromFirst.length), wholeMessage);
-                        } else {
-                            wholeMessage = addToMessage(getMessage(actualPacket.getData()), wholeMessage);
-                        }
+                    packetsOkay++;
+                    ack = getAlternatingBit(getHeaderWithoutChecksum(actualPacket.getData())) == 0 ? ackZero : ackOne;
+                    DatagramPacket packetOut = new DatagramPacket(ack, ack.length, InetAddress.getByName("localhost"), DESTINATION_PORT);
+                    socket.send(packetOut);
+                    fileReceiver.processMsg(FSMReceiver.Msg.ALL_FINE);
+                    expectedAltBit = expectedAltBit==0?1:0;
+                    if (!firstReceived) {
+                        fileName = new String(getFileNameFromFirst(getMessage(actualPacket.getData())));
+                        firstReceived = true;
+                        System.out.println(fileName);
+                        byte[] dataFromFirst = getMessage(actualPacket.getData());
+                        wholeMessage = addToMessage(Arrays.copyOfRange(dataFromFirst, 20, dataFromFirst.length), wholeMessage);
+                    } else {
+                        wholeMessage = addToMessage(getMessage(actualPacket.getData()), wholeMessage);
                     }
+                }
+                System.out.println(String.format("Round %d had %d lost %d corrupt %d wrong alt", round, lostOnReceiver, packetsCorrupt, packetsWrongAlt));
             } catch (SocketTimeoutException timeOut) {
                 receiving = false;
-                duration = (double)(System.currentTimeMillis() - start) / 1000 -10;
+                duration = (double) (System.currentTimeMillis() - start) / 1000 - 10;
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -213,8 +214,8 @@ public class FileReceiver {
         System.out.println("Socket closed, rec packets ok: " + packetsOkay);
         System.out.println("Total bytes written: " + wholeMessage.length);
         System.out.println("Took seconds:" + duration);
-        System.out.println("Lost Packets on receiver side: " +lostOnReceiver);
-        System.out.println("Corupt Packets: " +packetsCorrupt);
+        System.out.println("Lost Packets on receiver side: " + lostOnReceiver);
+        System.out.println("Corupt Packets: " + packetsCorrupt);
         System.out.println("Wrong Alt Bit: " + packetsWrongAlt);
         UnreliableChannel.printStats();
         //System.out.println(String.format("duplicated: %d, loses: %d, manipulated %d ", duplicates, loses, manipulated));
