@@ -83,7 +83,7 @@ public class FileSender {
 
                 byte[] ack = packetIn.getData();
 
-                if (FileSender.checkACK(ack)) { //check if checksum is correct
+                if (FileSender.checkACK(ack, alternatingBit)) { //check if checksum and is correct
                     bytesProcessed += length;
                     receiving = false;
                     alternatingBit ^= 1;
@@ -175,14 +175,14 @@ public class FileSender {
     }
 
 
-    private static boolean checkACK(byte[] ack) {
+    private static boolean checkACK(byte[] ack, int expectedBit) {
 
         int index = 0;
         byte[] intValues = new byte[5];
         byte[] longValue = new byte[8];
         CRC32 checksumTest = new CRC32();
 
-        // bytes for source port (2), destination port(2) and sequence number of ack(4)
+        // bytes for source port (2), destination port(2) and sequence number of ack(1)
         System.arraycopy(ack, 0, intValues, index, intValues.length);
         checksumTest.update(intValues);
         index += intValues.length;
@@ -191,7 +191,7 @@ public class FileSender {
         System.arraycopy(ack, index, longValue, 4, 4);
         long checksum = ByteBuffer.wrap(longValue).getLong();
 
-        return checksumTest.getValue() == checksum;
+        return checksumTest.getValue() == checksum && intValues[4] == expectedBit;
     }
 
     public static void main(String... args) throws IOException, InterruptedException {

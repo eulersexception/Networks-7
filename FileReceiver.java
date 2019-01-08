@@ -38,7 +38,7 @@ public class FileReceiver {
         boolean firstReceived = false;
         int expectedAltBit = 0;
         String fileName = "";
-        long start = System.currentTimeMillis();
+        long start = 0;
         int lostOnReceiver = 0;
         double duration = 0;
         int round =0;
@@ -51,27 +51,28 @@ public class FileReceiver {
                 while (notLast) {
                     round++;
                     socket.receive(packetIn);
+
+                    if(!firstReceived) {
+                        start = System.currentTimeMillis();
+                    }
                     actualPacket = UnreliableChannel.checkIfSomethingHappened(packetIn, 0.4, 0.05, 0.05);
 
                     if (checkIfBytesAllZero(actualPacket.getData())) {
-                        sleep(250);
                         lostOnReceiver++;
                     } else if (isCorrupt(actualPacket.getData())) {
                         packetsCorrupt++;
                         fileReceiver.processMsg(FSMReceiver.Msg.IS_CORRUPT);
-                        sleep(250);
                     } else if (getAlternatingBit(getHeaderWithoutChecksum(actualPacket.getData())) != expectedAltBit) {
                         packetsWrongAlt++;
                         fileReceiver.processMsg(FSMReceiver.Msg.WRONG_ALTERNATING);
-                        sleep(250);
                     } else {
                         notLast = FileReceiver.getFlag(packetIn.getData()) != 2;
                         packetsOkay++;
                         ack = getAlternatingBit(getHeaderWithoutChecksum(actualPacket.getData())) == 0 ? ackZero : ackOne;
+                        expectedAltBit ^= 1;
                         DatagramPacket packetOut = new DatagramPacket(ack, ack.length, InetAddress.getByName("localhost"), DESTINATION_PORT);
                         socket.send(packetOut);
                         fileReceiver.processMsg(FSMReceiver.Msg.ALL_FINE);
-                        expectedAltBit = expectedAltBit == 0 ? 1 : 0;
                         if (!firstReceived) {
                             fileName = new String(getFileNameFromFirst(getMessage(actualPacket.getData())));
                             firstReceived = true;
@@ -101,20 +102,17 @@ public class FileReceiver {
                 notLast = true;
                 firstReceived = false;
                 start = 0;
-                duration = 0;
                 packetsCorrupt = 0;
                 packetsOkay = 0;
                 packetsWrongAlt = 0;
                 expectedAltBit = 0;
                 lostOnReceiver = 0;
+                round = 0;
 
-                } catch(SocketTimeoutException timeOut){
-                    receiving = false;
-
-                } catch(InterruptedException e){
-                    e.printStackTrace();
-                }
+                } catch(SocketTimeoutException timeOut) {
+                receiving = false;
             }
+        }
         socket.close();
         //System.out.println(String.format("duplicated: %d, loses: %d, manipulated %d ", duplicates, loses, manipulated));
 
