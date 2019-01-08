@@ -86,7 +86,7 @@ public class FileReceiver {
                     System.out.println(String.format("Round %d had %d lost %d corrupt %d wrong alt", round, lostOnReceiver, packetsCorrupt, packetsWrongAlt));
                 }
 
-                duration = (double) (System.currentTimeMillis() - start) / 1000 - 10;
+                duration = (double) (System.currentTimeMillis() - start) / 1000;
                 writeOutputFile(wholeMessage, fileName);
 
                 System.out.println("Socket closed, rec packets ok: " + packetsOkay);

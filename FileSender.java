@@ -37,7 +37,7 @@ public class FileSender {
 
 
         DatagramSocket socket = new DatagramSocket(SOURCE_PORT);
-        socket.setSoTimeout(1000);
+        socket.setSoTimeout(250);
 
         boolean headerNotSent = true;
         int counter = 0;
@@ -45,7 +45,7 @@ public class FileSender {
 
         while (bytesProcessed < sizeOfFile) {
             fileSender.processMsg(FSMSender.Msg.SEND);
-            //counter ++;
+            counter ++;
             System.out.println("round "+ counter);
             System.out.println("file bytes:" + bytesOfFile.length);
 
@@ -74,27 +74,26 @@ public class FileSender {
             while (receiving) {
                 try {
                     socket.receive(packetIn);
+                    byte[] ack = packetIn.getData();
+
+                    if (FileSender.checkACK(ack, alternatingBit)) { //check if checksum and is correct
+                        bytesProcessed += length;
+                        receiving = false;
+                        alternatingBit ^= 1;
+                        fileSender.processMsg(FSMSender.Msg.ALL_FINE);
+                        if(headerNotSent) {
+                            headerNotSent = false;
+                        }
+                    } else {
+                        socket.send(packetOut);
+                        counter++;
+                        fileSender.processMsg(FSMSender.Msg.CORRUPT_OR_WRONG_BIT);
+                    }
                 } catch (SocketTimeoutException ex) {
                     fileSender.processMsg(FSMSender.Msg.TIMEOUT);
                     socket.send(packetOut);
                     counter++;
                     timeouts++;
-                }
-
-                byte[] ack = packetIn.getData();
-
-                if (FileSender.checkACK(ack, alternatingBit)) { //check if checksum and is correct
-                    bytesProcessed += length;
-                    receiving = false;
-                    alternatingBit ^= 1;
-                    fileSender.processMsg(FSMSender.Msg.ALL_FINE);
-                    if(headerNotSent) {
-                        headerNotSent = false;
-                    }
-                } else {
-                    socket.send(packetOut);
-                    counter++;
-                    fileSender.processMsg(FSMSender.Msg.CORRUPT_OR_WRONG_BIT);
                 }
             }
             sendEndFlag = bytesProcessed + length < sizeOfFile ? FileSender.setFlag(1) : FileSender.setFlag(2);
