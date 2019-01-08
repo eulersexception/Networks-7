@@ -1,9 +1,7 @@
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketTimeoutException;
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.Arrays;
@@ -193,10 +191,93 @@ public class FileSender {
         return checksumTest.getValue() == checksum && intValues[4] == expectedBit;
     }
 
+    public static void sendViaTCP(String fileName, String address, int port, long delayMillis, int flag) throws IOException, InterruptedException {
+
+        byte[] message = Files.readAllBytes(new File("src/"+fileName).toPath());
+        int length = message.length;
+        System.out.println("bytes to send: "+length);
+        InetAddress ip = InetAddress.getByName(address);
+        Socket socket = new Socket(ip, port);
+        DataOutputStream output = new DataOutputStream(socket.getOutputStream());
+        byte[] packet;
+        int packetNumber = 0;
+        long bytesSent = 0;
+        int currentIndex = 0;
+        long start = System.currentTimeMillis();
+        boolean headerNotSent = true;
+
+        while (bytesSent < length) {
+
+            if(headerNotSent) {
+                byte[] nameAsArray = fileName.getBytes();
+                packet = createChunk(++packetNumber, nameAsArray, 0);
+                output.write(packet);
+                output.flush();
+                headerNotSent = false;
+            }
+            else {
+                packet = FileSender.createChunk(++packetNumber, message, currentIndex);
+                output.write(packet);
+                output.flush();
+                bytesSent += packet.length -4;
+                currentIndex = (currentIndex + SIZE - 4) % length;
+            }
+            // this can throw an InterruptedException
+            if (flag != 0 && packetNumber % flag == 0)
+                Thread.sleep(delayMillis);
+        }
+        long duration = System.currentTimeMillis() - start;
+        socket.close();
+        System.out.println("bytes actually sent: "+bytesSent);
+
+        FileSender.printStats(bytesSent, FileSender.calculateThroughput(duration, bytesSent), delayMillis, flag, packetNumber);
+    }
+
+
+    private static void printStats(long bytesSent, float throughput, long delay, int flag, int packets) {
+        String expectedRate;
+        if(delay == 0) {
+            expectedRate = "Theoretically unlimited";
+        }
+        else
+            expectedRate = Float.toString((1400*flag)*8/(float)delay);
+
+        System.out.println("Transmission Data for TCP:\n" +
+                "\nTotal data\t\t\t" + (bytesSent * 8) + " bit" +
+                "\nThroughput\t\t\t" + throughput + " kbit/s" +
+                "\nDelay time in ms\t" + delay +
+                "\nDelay time per\t\t" + flag + " packets" +
+                "\nEstimated rate\t\t" + expectedRate +
+                "\nTotal amount of packets sent:\t" + packets +
+                "\n-------------------------------");
+    }
+
+    private static byte[] createChunk(int id, byte[] src, int srcIndex) {
+        byte[] packID = FileSender.createByteArrayForChunk(id);
+        byte[] chunk = new byte[SIZE];
+        System.arraycopy(packID,0, chunk, 0, packID.length);
+        System.arraycopy(src, srcIndex, chunk, packID.length, Math.min((src.length-srcIndex), (SIZE-packID.length)));
+        return chunk;
+    }
+
+
+    private static byte[] createByteArrayForChunk(int id) {
+        return ByteBuffer.allocate(Integer.SIZE/8).putInt(id).array();
+    }
+
+
+    private static float calculateThroughput(long duration, long sentBytes) {
+        long div = 1000;
+        long durationInSec = duration / div;
+        long data_kbit = (sentBytes * 8) / div;
+        return data_kbit / (float) durationInSec;
+    }
+
     public static void main(String... args) throws IOException, InterruptedException {
         String ipAddress = args[0];
         String fileName = args[1];
-        fileSender = new FSMSender();
-        secureTransmissionViaUDP(fileName, ipAddress);
+        sendViaTCP(fileName,ipAddress,80,0,0);
+        //fileSender = new FSMSender();
+        //secureTransmissionViaUDP(fileName, ipAddress);
     }
 }

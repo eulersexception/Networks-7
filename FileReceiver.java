@@ -1,9 +1,7 @@
+import java.io.DataInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketTimeoutException;
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.zip.CRC32;
@@ -15,7 +13,6 @@ public class FileReceiver {
     private static int DESTINATION_PORT;
     private static final byte[] DESTINATION_BYTES = Arrays.copyOfRange(ByteBuffer.allocate(Integer.BYTES).putInt(DESTINATION_PORT).array(), 2, 4);
     private static FSMReceiver fileReceiver;
-
 
     public void secureUDPReceiver() throws IOException {
 
@@ -36,7 +33,7 @@ public class FileReceiver {
         long start = 0;
         int lostOnReceiver = 0;
         double duration;
-        int round =0;
+        int round = 0;
         boolean notLast = true;
         InetAddress ipSender = null;
 
@@ -86,7 +83,7 @@ public class FileReceiver {
                 }
 
                 duration = (double) (System.currentTimeMillis() - start) / 1000;
-                writeOutputFile(wholeMessage, fileName);
+                writeOutputFile(wholeMessage, fileName,"udp");
 
                 System.out.println("Socket closed, rec packets ok: " + packetsOkay);
                 System.out.println("Total bytes written: " + wholeMessage.length);
@@ -113,8 +110,6 @@ public class FileReceiver {
             }
         }
         socket.close();
-        //System.out.println(String.format("duplicated: %d, loses: %d, manipulated %d ", duplicates, loses, manipulated));
-
     }
 
     private static byte[] addToMessage(byte[] packet, byte[] message) {
@@ -149,8 +144,8 @@ public class FileReceiver {
         return ack;
     }
 
-    private static void writeOutputFile(byte[] message, String fileName) {
-        try (FileOutputStream fos = new FileOutputStream("src/rec_" + fileName.trim())) {
+    private static void writeOutputFile(byte[] message, String fileName, String protocol) {
+        try (FileOutputStream fos = new FileOutputStream("src/rec_" + protocol + "_" + fileName.trim())) {
             fos.write(message);
             fos.flush();
         } catch (IOException e) {
@@ -238,10 +233,71 @@ public class FileReceiver {
         return FileReceiver.getChecksum(datagram) != checksum.getValue();
     }
 
-    public static void main(String... args) throws IOException {
-        fileReceiver = new FSMReceiver();
-        new FileReceiver().secureUDPReceiver();
+    public static void startTCP(int port) throws IOException {
+        long start = 0;
+        ServerSocket server = new ServerSocket(port);
+        int packetID;
+        int packCounter = 0;
+        long totalReceived = 0;
+        byte[] data = new byte[1400];
+        String fileName;
+        byte[] wholeMessage = {};
+
+        System.out.println("Connection testing....");
+        Socket connection = server.accept();
+        connection.setSoTimeout(5000);
+        DataInputStream input = new DataInputStream(connection.getInputStream());
+        System.out.println("Connection started");
+
+        packetID = input.read(data, 0, 1400);
+        fileName = new String(data).trim();
+
+        while (packetID != -1) {
+            if (start == 0) {
+                start = System.currentTimeMillis();
+            }
+            else {
+                packCounter++;
+                packetID = input.read(data, 0, 1400);
+                wholeMessage = addToMessage(Arrays.copyOfRange(data, 4, data.length), wholeMessage);
+                totalReceived += data.length -4;
+            }
+        }
+        writeOutputFile(wholeMessage, fileName, "tcp");
+        System.out.println("TCP total bytes written: " + wholeMessage.length);
+        System.out.println("TCP total bytes received: " + totalReceived);
+        long end = System.currentTimeMillis();
+        FileReceiver.printStats(packCounter, FileReceiver.calculateThroughput(start, end, totalReceived), packCounter);
     }
 
+
+    private static void printStats(int packetID, float throughput, int packCounter) {
+        System.out.println("Transmission Data for TCP:\n" +
+                "\nPacket-ID of last received packet:\t\t"+packetID +
+                "\nAverage throughput:\t\t"+ throughput +" kbit/s"+
+                "\nPackets received:\t\t"+packCounter+
+                "\nPackets lost:\t\t\t"+(packetID-packCounter)+
+                "\n-------------------------------------");
+    }
+
+    private static float calculateThroughput(long start, long end, long receivedBytes) {
+        long duration = end - start;
+        return FileReceiver.calculateThroughput(duration, receivedBytes);
+    }
+
+
+    private static float calculateThroughput(long duration, long receivedBytes) {
+        float div = 1000;
+        float durationInSec = duration / div;
+        float data_kbit = (receivedBytes * 8) / div;
+        return data_kbit / durationInSec;
+    }
+
+    public static void main(String... args) throws IOException {
+        startTCP(80);
+        //fileReceiver = new FSMReceiver();
+        //new FileReceiver().secureUDPReceiver();
+
+    }
 
 }
