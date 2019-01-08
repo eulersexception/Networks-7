@@ -37,58 +37,35 @@ public class FileSender {
 
 
         DatagramSocket socket = new DatagramSocket(SOURCE_PORT);
-        socket.setSoTimeout(250);
+        socket.setSoTimeout(1000);
 
         boolean headerNotSent = true;
         int counter = 0;
         int timeouts = 0;
-        while (headerNotSent) {
-            fileSender.processMsg(FSMSender.Msg.SEND);
-            int length = SIZE - HEADER_SIZE - 20;
-            byte[] firstPacket = new byte[length + 20];
-            System.arraycopy(fileNameAsBytes, 0, firstPacket, 0, fileNameLength);
-            System.arraycopy(bytesOfFile, 0, firstPacket, 20, length);
-            sendingData = FileSender.createChunkWithChecksum(alternatingBit, sendEndFlag, firstPacket);
-            DatagramPacket packetOut = new DatagramPacket(sendingData, sendingData.length, ip, DESTINATION_PORT);
-            DatagramPacket packetIn = new DatagramPacket(receivingData, receivingData.length);
-            socket.send(packetOut);
-            String fileNameSent = new String(Arrays.copyOfRange(firstPacket, 0, 20 ));
-            System.out.println(fileNameSent);
-            boolean receiving = true;
 
-            while (receiving) {
-                try {
-                    socket.receive(packetIn);
-                } catch (SocketTimeoutException ex) {
-                    fileSender.processMsg(FSMSender.Msg.TIMEOUT);
-                    socket.send(packetOut);
-                    timeouts++;
-                    counter++;
-                }
-
-                byte[] ack = packetIn.getData();
-
-                if (FileSender.checkACK(ack)) {
-                    bytesProcessed += length;
-                    receiving = false;
-                    headerNotSent = false;
-                    alternatingBit ^= 1;
-                    fileSender.processMsg(FSMSender.Msg.ALL_FINE);
-                } else {
-                    fileSender.processMsg(FSMSender.Msg.CORRUPT_OR_WRONG_BIT);
-                }
-            }
-        }
         while (bytesProcessed < sizeOfFile) {
             fileSender.processMsg(FSMSender.Msg.SEND);
             //counter ++;
             System.out.println("round "+ counter);
             System.out.println("file bytes:" + bytesOfFile.length);
-            int length = Math.min(SIZE - HEADER_SIZE, sizeOfFile - bytesProcessed);
-            System.out.println("data\nlength: " + length);
-            System.out.println("bytes processed: " + bytesProcessed);
-            sendingData = FileSender.createChunkWithChecksum(alternatingBit, sendEndFlag, Arrays.copyOfRange(bytesOfFile, bytesProcessed, bytesProcessed+length));
-            DatagramPacket packetOut = new DatagramPacket(sendingData, sendingData.length, ip, DESTINATION_PORT);
+
+            int length;
+            DatagramPacket packetOut;
+            if(headerNotSent) {
+                length = SIZE - HEADER_SIZE - 20;
+                byte[] firstPacket = new byte[length + 20];
+                System.arraycopy(fileNameAsBytes, 0, firstPacket, 0, fileNameLength);
+                System.arraycopy(bytesOfFile, 0, firstPacket, 20, length);
+                sendingData = FileSender.createChunkWithChecksum(alternatingBit, sendEndFlag, firstPacket);
+                packetOut = new DatagramPacket(sendingData, sendingData.length, ip, DESTINATION_PORT);
+            }
+            else {
+                length = Math.min(SIZE - HEADER_SIZE, sizeOfFile - bytesProcessed);
+                System.out.println("data\nlength: " + length);
+                System.out.println("bytes processed: " + bytesProcessed);
+                sendingData = FileSender.createChunkWithChecksum(alternatingBit, sendEndFlag, Arrays.copyOfRange(bytesOfFile, bytesProcessed, bytesProcessed + length));
+                packetOut = new DatagramPacket(sendingData, sendingData.length, ip, DESTINATION_PORT);
+            }
             DatagramPacket packetIn = new DatagramPacket(receivingData, receivingData.length);
             socket.send(packetOut);
 
@@ -111,6 +88,9 @@ public class FileSender {
                     receiving = false;
                     alternatingBit ^= 1;
                     fileSender.processMsg(FSMSender.Msg.ALL_FINE);
+                    if(headerNotSent) {
+                        headerNotSent = false;
+                    }
                 } else {
                     socket.send(packetOut);
                     counter++;
