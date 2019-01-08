@@ -8,17 +8,12 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.zip.CRC32;
 
-import static java.lang.Thread.sleep;
-
-
 public class FileReceiver {
 
     private static final int SOURCE_PORT = 2121;
     private static final byte[] SOURCE_BYTES = Arrays.copyOfRange(ByteBuffer.allocate(Integer.BYTES).putInt(SOURCE_PORT).array(), 2, 4);
-    private static final int DESTINATION_PORT = 4242;
+    private static int DESTINATION_PORT;
     private static final byte[] DESTINATION_BYTES = Arrays.copyOfRange(ByteBuffer.allocate(Integer.BYTES).putInt(DESTINATION_PORT).array(), 2, 4);
-    private static final int SIZE = 9;
-    private static final int HEADER_SIZE = SOURCE_BYTES.length + DESTINATION_BYTES.length + 1; // Header size for ACK in byte: 1 = Alternating Bit
     private static FSMReceiver fileReceiver;
 
 
@@ -34,15 +29,17 @@ public class FileReceiver {
         byte[] wholeMessage = {};
         byte[] ackZero = FileReceiver.createACK(Integer.valueOf(0).byteValue());
         byte[] ackOne = FileReceiver.createACK(Integer.valueOf(1).byteValue());
-        byte[] ack = ackOne;
+        byte[] ack;
         boolean firstReceived = false;
         int expectedAltBit = 0;
         String fileName = "";
         long start = 0;
         int lostOnReceiver = 0;
-        double duration = 0;
+        double duration;
         int round =0;
         boolean notLast = true;
+        InetAddress ipSender = null;
+
         while (receiving) {
             DatagramPacket packetIn = new DatagramPacket(data, data.length);
             DatagramPacket actualPacket;
@@ -55,7 +52,7 @@ public class FileReceiver {
                     if(!firstReceived) {
                         start = System.currentTimeMillis();
                     }
-                    actualPacket = UnreliableChannel.checkIfSomethingHappened(packetIn, 0.4, 0.05, 0.05);
+                    actualPacket = UnreliableChannel.checkIfSomethingHappened(packetIn, 0.1, 0.05, 0.05);
 
                     if (checkIfBytesAllZero(actualPacket.getData())) {
                         lostOnReceiver++;
@@ -66,15 +63,10 @@ public class FileReceiver {
                         packetsWrongAlt++;
                         fileReceiver.processMsg(FSMReceiver.Msg.WRONG_ALTERNATING);
                     } else {
-                        notLast = FileReceiver.getFlag(packetIn.getData()) != 2;
-                        packetsOkay++;
-                        ack = getAlternatingBit(getHeaderWithoutChecksum(actualPacket.getData())) == 0 ? ackZero : ackOne;
-                        expectedAltBit ^= 1;
-                        DatagramPacket packetOut = new DatagramPacket(ack, ack.length, InetAddress.getByName("localhost"), DESTINATION_PORT);
-                        socket.send(packetOut);
-                        fileReceiver.processMsg(FSMReceiver.Msg.ALL_FINE);
                         if (!firstReceived) {
                             fileName = new String(getFileNameFromFirst(getMessage(actualPacket.getData())));
+                            ipSender = packetIn.getAddress();
+                            DESTINATION_PORT = packetIn.getPort();
                             firstReceived = true;
                             System.out.println(fileName);
                             byte[] dataFromFirst = getMessage(actualPacket.getData());
@@ -82,6 +74,13 @@ public class FileReceiver {
                         } else {
                             wholeMessage = addToMessage(getMessage(actualPacket.getData()), wholeMessage);
                         }
+                        notLast = FileReceiver.getFlag(packetIn.getData()) != 2;
+                        packetsOkay++;
+                        ack = getAlternatingBit(getHeaderWithoutChecksum(actualPacket.getData())) == 0 ? ackZero : ackOne;
+                        expectedAltBit ^= 1;
+                        DatagramPacket packetOut = new DatagramPacket(ack, ack.length, ipSender, DESTINATION_PORT);
+                        socket.send(packetOut);
+                        fileReceiver.processMsg(FSMReceiver.Msg.ALL_FINE);
                     }
                     System.out.println(String.format("Round %d had %d lost %d corrupt %d wrong alt", round, lostOnReceiver, packetsCorrupt, packetsWrongAlt));
                 }
@@ -130,11 +129,12 @@ public class FileReceiver {
         int index = 0;
         System.arraycopy(SOURCE_BYTES, 0, header, index, SOURCE_BYTES.length);
         index += SOURCE_BYTES.length;
+        CRC32 crc32 = new CRC32();
+
         System.arraycopy(DESTINATION_BYTES, 0, header, index, DESTINATION_BYTES.length);
         index += DESTINATION_BYTES.length;
         header[index] = alternatingBit;
 
-        CRC32 crc32 = new CRC32();
         crc32.update(header);
 
         byte[] checksum = ByteBuffer.allocate(Long.BYTES).putLong(crc32.getValue()).array();
