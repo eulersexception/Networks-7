@@ -277,7 +277,7 @@ public class FileSender {
         String ipAddress = args[0];
         String fileName = args[1];
         sendViaTCP(fileName,ipAddress,80,0,0);
-        //fileSender = new FSMSender();
-        //secureTransmissionViaUDP(fileName, ipAddress);
+        fileSender = new FSMSender();
+        secureTransmissionViaUDP(fileName, ipAddress);
     }
 }

@@ -32,7 +32,7 @@ public class FileReceiver {
         String fileName = "";
         long start = 0;
         int lostOnReceiver = 0;
-        double duration;
+        long end;
         int round = 0;
         boolean notLast = true;
         InetAddress ipSender = null;
@@ -82,13 +82,11 @@ public class FileReceiver {
                     System.out.println(String.format("Round %d had %d lost %d corrupt %d wrong alt", round, lostOnReceiver, packetsCorrupt, packetsWrongAlt));
                 }
 
-                duration = (double) (System.currentTimeMillis() - start) / 1000;
+                end = System.currentTimeMillis();
                 writeOutputFile(wholeMessage, fileName,"udp");
 
-                System.out.println("Socket closed, rec packets ok: " + packetsOkay);
-                System.out.println("Total bytes written: " + wholeMessage.length);
-                System.out.println("Took seconds:" + duration);
-                System.out.println("Lost Packets on receiver side: " + lostOnReceiver);
+                System.out.println("Socket closed, total bytes written: " + wholeMessage.length);
+                FileReceiver.printStats(packetsOkay, FileReceiver.calculateThroughput(start, end, wholeMessage.length), lostOnReceiver, "udp");
                 System.out.println("Corupt Packets: " + packetsCorrupt);
                 System.out.println("Wrong Alt Bit: " + packetsWrongAlt);
                 UnreliableChannel.printStats();
@@ -267,16 +265,15 @@ public class FileReceiver {
         System.out.println("TCP total bytes written: " + wholeMessage.length);
         System.out.println("TCP total bytes received: " + totalReceived);
         long end = System.currentTimeMillis();
-        FileReceiver.printStats(packCounter, FileReceiver.calculateThroughput(start, end, totalReceived), packCounter);
+        FileReceiver.printStats(packCounter, FileReceiver.calculateThroughput(start, end, totalReceived), 0, "tcp");
     }
 
 
-    private static void printStats(int packetID, float throughput, int packCounter) {
-        System.out.println("Transmission Data for TCP:\n" +
-                "\nPacket-ID of last received packet:\t\t"+packetID +
+    private static void printStats(int packCounter, float throughput, int packetsLost, String protocol) {
+        System.out.println("Transmission Data for " + protocol + ":\n" +
                 "\nAverage throughput:\t\t"+ throughput +" kbit/s"+
                 "\nPackets received:\t\t"+packCounter+
-                "\nPackets lost:\t\t\t"+(packetID-packCounter)+
+                "\nPackets lost:\t\t\t"+packetsLost+
                 "\n-------------------------------------");
     }
 
@@ -295,8 +292,8 @@ public class FileReceiver {
 
     public static void main(String... args) throws IOException {
         startTCP(80);
-        //fileReceiver = new FSMReceiver();
-        //new FileReceiver().secureUDPReceiver();
+        fileReceiver = new FSMReceiver();
+        new FileReceiver().secureUDPReceiver();
 
     }
 
