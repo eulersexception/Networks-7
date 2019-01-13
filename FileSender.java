@@ -1,3 +1,14 @@
+/**
+ * Networks 2018/2019
+ * Lab 7:
+ * - file transmission via UDP Alternating-Bit-Protocol compared to TCP
+ * - unreliable channel
+ * - finite state machine for FileSender and FileReceiver
+ *
+ * @author Erwin Kupris, kupris@hm.edu // Bahadir Süzer, suezer@hm.edu
+ * @version 2019-01-13
+ */
+
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -279,7 +290,7 @@ public class FileSender {
     public static void main(String... args) throws IOException, InterruptedException {
         String ipAddress = args[0];
         String fileName = args[1];
-        //sendViaTCP(fileName,ipAddress,80,0,0);
+        sendViaTCP(fileName,ipAddress,80,0,0);
         secureTransmissionViaUDP(fileName, ipAddress);
     }
 }

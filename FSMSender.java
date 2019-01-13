@@ -1,11 +1,14 @@
 /**
- * Finate State Machine (FSM) Java Example: Woman
- * (lecture slides for first lecture, p. 19)
+ * Networks 2018/2019
+ * Lab 7:
+ * - file transmission via UDP Alternating-Bit-Protocol compared to TCP
+ * - unreliable channel
+ * - finite state machine for FileSender and FileReceiver
+ *
+ * @author Erwin Kupris, kupris@hm.edu // Bahadir Süzer, suezer@hm.edu
+ * @version 2019-01-13
  */
 
-/**
- * Class which models the state machine itself.
- */
 public class FSMSender {
     // all states for this FSM
     enum State {

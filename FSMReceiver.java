@@ -1,3 +1,14 @@
+/**
+ * Networks 2018/2019
+ * Lab 7:
+ * - file transmission via UDP Alternating-Bit-Protocol compared to TCP
+ * - unreliable channel
+ * - finite state machine for FileSender and FileReceiver
+ *
+ * @author Erwin Kupris, kupris@hm.edu // Bahadir Süzer, suezer@hm.edu
+ * @version 2019-01-13
+ */
+
 public class FSMReceiver {
 
     enum State {
