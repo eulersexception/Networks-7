@@ -16,7 +16,7 @@ public class FileSender {
     private static final byte[] DESTINATION_BYTES = Arrays.copyOfRange(ByteBuffer.allocate(Integer.BYTES).putInt(DESTINATION_PORT).array(), 2, 4);
     private static final int SIZE = 1400;
     private static final int HEADER_SIZE = SOURCE_BYTES.length + DESTINATION_BYTES.length + 1 + 1 + 2 + 4; // Header size in byte: 1 = alternatingBit, 1 = send-end-flag,  2 = payload length, 4 = lower 4 byte of checksum
-    private static FSMSender fileSender;
+    private static FSMSender fileSender = new FSMSender();
 
     private static void secureTransmissionViaUDP(String fileName, String ipTarget) throws IOException {
 
@@ -277,7 +277,6 @@ public class FileSender {
         String ipAddress = args[0];
         String fileName = args[1];
         sendViaTCP(fileName,ipAddress,80,0,0);
-        fileSender = new FSMSender();
         secureTransmissionViaUDP(fileName, ipAddress);
     }
 }

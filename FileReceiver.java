@@ -12,9 +12,9 @@ public class FileReceiver {
     private static final byte[] SOURCE_BYTES = Arrays.copyOfRange(ByteBuffer.allocate(Integer.BYTES).putInt(SOURCE_PORT).array(), 2, 4);
     private static int DESTINATION_PORT;
     private static final byte[] DESTINATION_BYTES = Arrays.copyOfRange(ByteBuffer.allocate(Integer.BYTES).putInt(DESTINATION_PORT).array(), 2, 4);
-    private static FSMReceiver fileReceiver;
+    private static FSMReceiver fileReceiver = new FSMReceiver();
 
-    public void secureUDPReceiver() throws IOException {
+    public static void secureUDPReceiver() throws IOException {
 
         DatagramSocket socket = new DatagramSocket(SOURCE_PORT);
         socket.setSoTimeout(60000);
@@ -292,8 +292,7 @@ public class FileReceiver {
 
     public static void main(String... args) throws IOException {
         startTCP(80);
-        fileReceiver = new FSMReceiver();
-        new FileReceiver().secureUDPReceiver();
+        secureUDPReceiver();
 
     }
 
