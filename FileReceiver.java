@@ -86,9 +86,8 @@ public class FileReceiver {
 
                 System.out.println("Socket closed, total bytes written: " + wholeMessage.length);
                 FileReceiver.printStats(packetsOkay, FileReceiver.calculateThroughput(start, end, wholeMessage.length), lostOnReceiver, "udp");
-                System.out.println("Corupt Packets: " + packetsCorrupt);
+                System.out.println("Corrupt Packets: " + packetsCorrupt);
                 System.out.println("Wrong Alt Bit: " + packetsWrongAlt);
-                UnreliableChannel.printStats();
 
                 wholeMessage = new byte[0];
                 fileName = "";

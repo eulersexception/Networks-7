@@ -46,9 +46,4 @@ public class UnreliableChannel {
     }
 
 
-    public static void printStats(){
-        System.out.println("Lost: "+ lost);
-        System.out.println("Dupl: "+ duplicated);
-        System.out.println("Manip: "+ manipulated);
-    }
 }
