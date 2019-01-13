@@ -41,6 +41,7 @@ public class FileSender {
         int counter = 0;
         int timeouts = 0;
 
+        long start = System.currentTimeMillis();
         while (bytesProcessed < sizeOfFile) {
             fileSender.processMsg(FSMSender.Msg.SEND);
             counter ++;
@@ -96,6 +97,8 @@ public class FileSender {
             }
             sendEndFlag = bytesProcessed + length < sizeOfFile ? FileSender.setFlag(1) : FileSender.setFlag(2);
         }
+        long duration = System.currentTimeMillis() - start;
+        printStats(bytesProcessed, calculateThroughput(duration, bytesProcessed), 0, 0, counter);
         socket.close();
         System.out.println("Timeouts: " +timeouts);
     }
@@ -195,7 +198,6 @@ public class FileSender {
 
         byte[] message = Files.readAllBytes(new File("src/"+fileName).toPath());
         int length = message.length;
-        System.out.println("bytes to send: "+length);
         InetAddress ip = InetAddress.getByName(address);
         Socket socket = new Socket(ip, port);
         DataOutputStream output = new DataOutputStream(socket.getOutputStream());
@@ -211,6 +213,7 @@ public class FileSender {
             if(headerNotSent) {
                 byte[] nameAsArray = fileName.getBytes();
                 packet = createChunk(++packetNumber, nameAsArray, 0);
+                bytesSent += packet.length-4;
                 output.write(packet);
                 output.flush();
                 headerNotSent = false;
@@ -276,7 +279,7 @@ public class FileSender {
     public static void main(String... args) throws IOException, InterruptedException {
         String ipAddress = args[0];
         String fileName = args[1];
-        sendViaTCP(fileName,ipAddress,80,0,0);
+        //sendViaTCP(fileName,ipAddress,80,0,0);
         secureTransmissionViaUDP(fileName, ipAddress);
     }
 }

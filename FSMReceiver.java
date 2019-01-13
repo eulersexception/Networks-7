@@ -19,10 +19,10 @@ public class FSMReceiver {
         transition = new Transition[State.values().length][Msg.values().length];
         transition[State.WAIT_FOR_ZERO.ordinal()][Msg.ALL_FINE.ordinal()] = new ExtractPacketAndSendAck();
         transition[State.WAIT_FOR_ZERO.ordinal()][Msg.IS_CORRUPT.ordinal()] = new DoNothing();
-        transition[State.WAIT_FOR_ZERO.ordinal()][Msg.WRONG_ALTERNATING.ordinal()] = new ResendLastACK();
+        transition[State.WAIT_FOR_ZERO.ordinal()][Msg.WRONG_ALTERNATING.ordinal()] = new DoNothing();
         transition[State.WAIT_FOR_ONE.ordinal()][Msg.ALL_FINE.ordinal()] = new ExtractPacketAndSendAck();
         transition[State.WAIT_FOR_ONE.ordinal()][Msg.IS_CORRUPT.ordinal()] = new DoNothing();
-        transition[State.WAIT_FOR_ONE.ordinal()][Msg.WRONG_ALTERNATING.ordinal()] = new ResendLastACK();
+        transition[State.WAIT_FOR_ONE.ordinal()][Msg.WRONG_ALTERNATING.ordinal()] = new DoNothing();
         System.out.println("INFO: FSM Receiver constructed, current state: "+currentState);
     }
 

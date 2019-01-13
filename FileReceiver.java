@@ -79,7 +79,6 @@ public class FileReceiver {
                         socket.send(packetOut);
                         fileReceiver.processMsg(FSMReceiver.Msg.ALL_FINE);
                     }
-                    System.out.println(String.format("Round %d had %d lost %d corrupt %d wrong alt", round, lostOnReceiver, packetsCorrupt, packetsWrongAlt));
                 }
 
                 end = System.currentTimeMillis();
@@ -291,7 +290,7 @@ public class FileReceiver {
     }
 
     public static void main(String... args) throws IOException {
-        startTCP(80);
+        //startTCP(80);
         secureUDPReceiver();
 
     }

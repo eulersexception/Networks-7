@@ -27,14 +27,14 @@ public class FSMSender {
         transition = new Transition[State.values().length] [Msg.values().length];
 
         transition[State.WAIT_CALL_0.ordinal()] [Msg.SEND.ordinal()] = new SendPacket();
-        //transition[State.WAIT_CALL_0.ordinal()] [Msg.RCV.ordinal()] = new DoNothing();
+
 
         transition[State.WAIT_ACK_0.ordinal()] [Msg.ALL_FINE.ordinal()] = new ReceiveACK();
         transition[State.WAIT_ACK_0.ordinal()] [Msg.CORRUPT_OR_WRONG_BIT.ordinal()] = new DoNothing();
         transition[State.WAIT_ACK_0.ordinal()] [Msg.TIMEOUT.ordinal()] = new ResendAfterTimeout();
 
         transition[State.WAIT_CALL_1.ordinal()] [Msg.SEND.ordinal()] = new SendPacket();
-        //transition[State.WAIT_CALL_1.ordinal()] [Msg.RCV.ordinal()] = new DoNothing();
+
 
         transition[State.WAIT_ACK_1.ordinal()] [Msg.ALL_FINE.ordinal()] = new ReceiveACK();
         transition[State.WAIT_ACK_1.ordinal()] [Msg.CORRUPT_OR_WRONG_BIT.ordinal()] = new DoNothing();
@@ -65,18 +65,14 @@ public class FSMSender {
     class SendPacket extends Transition {
         @Override
         public State execute(Msg input) {
-            int bitNumber = 0;
             if(currentState == State.WAIT_CALL_0) {
                 System.out.println("Packet with bit 0 sent, wait for ACK 0");
                 currentState = State.WAIT_ACK_0;
             }
             else {
                 System.out.println("Packet sent, wait for ACK 1");
-                bitNumber = 1;
                 currentState = State.WAIT_ACK_1;
             }
-
-            // send(bitNumber)
             return currentState;
         }
     }
@@ -94,7 +90,6 @@ public class FSMSender {
             }
             return currentState;
         }
-        // stoptimer();
     }
 
     class DoNothing extends Transition {
@@ -108,15 +103,12 @@ public class FSMSender {
     class ResendAfterTimeout extends Transition {
         @Override
         public State execute(Msg input) {
-            int bitNumber = 0;
             if(currentState == State.WAIT_ACK_0) {
                 System.out.println("Timeout occured: Resend packet 0.");
             }
             else {
                 System.out.println("Timeout occured: Resend packet 1.");
-                bitNumber = 1;
             }
-            // resend(bitNumber)
             return currentState;
         }
     }
