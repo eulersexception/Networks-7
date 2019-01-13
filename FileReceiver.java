@@ -289,8 +289,8 @@ public class FileReceiver {
     }
 
     public static void main(String... args) throws IOException {
-        //startTCP(80);
-        secureUDPReceiver();
+        startTCP(80);
+        //secureUDPReceiver();
 
     }
 
